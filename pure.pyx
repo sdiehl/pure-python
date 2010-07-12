@@ -189,6 +189,12 @@ cdef class PureList(PureExpr):
             xps[i] = xp
         self._expr = pure.pure_listv(len(args),xps)
 
+    def __getitem__(a,b):
+        return operator.__getitem__(a,PureInt(b))
+
+    def __getslice__(a,b,c):
+        return operator.__getslice__(a,PureInt(b),PureInt(c))
+
 cdef class PureTuple(PureExpr):
     _type = 'tuple'
 
