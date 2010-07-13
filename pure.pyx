@@ -8,9 +8,12 @@ import pure_operators as operator
 cdef class PureEnv:
     cdef pure_interp *_interp
 
-    def __cinit__(self):
+    def __cinit__(self,*args):
         print "Creating interpreter instance."
-        self._interp = pure.pure_create_interp(0,NULL)
+        cdef char **cargs
+        for i in enumerate(args):
+            cargs[i] = args[i]
+        self._interp = pure.pure_create_interp(1,cargs)
         if self._interp is NULL:
             python_exc.PyErr_NoMemory()
 
@@ -24,6 +27,9 @@ cdef class PureEnv:
             print "Could not parse"
         else:
             return (PureExpr().se(y))
+
+    def using(self, lib):
+        self.eval("using %s" % lib)
 
 cdef class PureExpr:
     cdef pure_expr *_expr
