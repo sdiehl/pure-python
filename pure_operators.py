@@ -8,6 +8,7 @@ __sub__ = PureSymbol('-')
 __div__ = PureSymbol('/')
 __or__ = PureSymbol('or')
 __mul__ = PureSymbol('*')
+__neg__ = PureSymbol('neg')
 __getitem__ =  PureSymbol('!')
 __getslice__ = PureSymbol('!!')
 
@@ -19,6 +20,9 @@ def sub(a,b):
 
 def div(a,b):
     return __div__(a,b)
+
+def neg(a):
+    return __neg__(a)
 
 def mul(a,b):
     return __mul__(a,b)

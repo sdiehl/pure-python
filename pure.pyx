@@ -1,12 +1,14 @@
 cimport pure
 cimport python_exc
 
+current_interp = None
 env = PureEnv()
 
 import pure_operators as operator
 
 cdef class PureEnv:
     cdef pure_interp *_interp
+    cpdef list locals
 
     def __cinit__(self,*args):
         print "Creating interpreter instance."
@@ -16,6 +18,9 @@ cdef class PureEnv:
         self._interp = pure.pure_create_interp(1,cargs)
         if self._interp is NULL:
             python_exc.PyErr_NoMemory()
+        global current_interp
+        current_interp = self
+        self.locals = []
 
     def __dealloc__(self):
         pass
@@ -30,12 +35,15 @@ cdef class PureEnv:
 
     def using(self, lib):
         self.eval("using %s" % lib)
+        for sym in self.locals:
+            sym.update()
 
 cdef class PureExpr:
     cdef pure_expr *_expr
     cpdef int _tag
     cpdef int _refc
     _type = None
+    cdef PureEnv _interp
 
     def __cinit__(self):
         pass
@@ -44,6 +52,10 @@ cdef class PureExpr:
         self._expr = ex
         self._tag = ex.tag
         return self
+
+    @property
+    def interp(self):
+        return self._interp
 
     @property
     def tag(self):
@@ -90,6 +102,9 @@ cdef class PureExpr:
     def __add__(self,other):
         return operator.add(self,other)
 
+    def __neg__(self):
+        return operator.neg(self)
+
     def __sub__(self,other):
         return operator.sub(self,other)
 
@@ -116,14 +131,19 @@ cdef class PureApp(PureExpr):
 cdef class PureSymbol(PureExpr):
     _type = 'symbol'
     cdef char* _sym
+    cdef public _psym
 
     def __cinit__(self,sym):
        self._sym = sym
+       self._psym = sym
        self._expr = pure.pure_symbol(pure.pure_sym(sym))
        self._tag = self._expr.tag
+       self._interp = current_interp
+       self._interp.locals.append(self)
 
     def update(self):
        '''Called if the we need to change what the symbol refers to'''
+       print 'rebuilding', self._sym
        self._expr = pure.pure_symbol(pure.pure_sym(self._sym))
        self._tag = self._expr.tag
 
