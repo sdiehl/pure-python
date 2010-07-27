@@ -33,6 +33,9 @@ cdef class PureEnv:
         else:
             return (PureExpr().se(y))
 
+    cpdef cmd(self, s):
+        print pure.pure_evalcmd(s)
+
     def using(self, lib):
         self.eval("using %s" % lib)
         for sym in self.locals:
@@ -61,6 +64,9 @@ cdef class PureExpr:
     def tag(self):
         self._tag = self._expr.tag
         return self._tag
+
+    def refresh(self):
+        self._expr = pure.eval(self._expr)
 
     @property
     def refc(self):
@@ -117,6 +123,7 @@ cdef class PureExpr:
 cdef class PureApp(PureExpr):
     _type = 'app'
     cdef PureExpr _head
+    cdef pure_expr _rebuild
     cdef char* _sym
 
     def __invert__(self):
@@ -127,6 +134,9 @@ cdef class PureApp(PureExpr):
 
     def get_head(self):
         return self._head
+
+    def update(self):
+        pass
 
 cdef class PureSymbol(PureExpr):
     _type = 'symbol'
@@ -143,7 +153,6 @@ cdef class PureSymbol(PureExpr):
 
     def update(self):
        '''Called if the we need to change what the symbol refers to'''
-       print 'rebuilding', self._sym
        self._expr = pure.pure_symbol(pure.pure_sym(self._sym))
        self._tag = self._expr.tag
 
@@ -159,7 +168,8 @@ cdef class PureQuotedSymbol(PureExpr):
        self._tag = self._expr.tag
 
 cdef class PureRule(PureExpr):
-    cdef char* stmt
+    cdef char* _stmt
+    cdef public _pstmt
 
     def __cinit__(self, lhs, rhs):
         if isinstance(lhs,type("")):
@@ -173,16 +183,19 @@ cdef class PureRule(PureExpr):
             srhs = pure.str(g(rhs))
 
         stmt = "=".join([slhs,srhs])
-        print "Setting",stmt
-        self.stmt = stmt
-        pure.pure_eval(stmt)
+        self._stmt = stmt
+        self._pstmt = stmt
+        #pure.pure_save()
+        #self._expr = pure.pure_eval(stmt)
+        #print pure.str(pure.pure_eval('f a'))
+        #pure.pure_restore()
 
         if isinstance(lhs,PureApp):
             print 'Changing head'
             lhs.get_head().update()
 
     def __repr__(self):
-        return self.stmt
+        return self._stmt
 
 cdef class PureInt(PureExpr):
     _type = 'int'
@@ -234,3 +247,10 @@ cdef class PureTuple(PureExpr):
 
 cdef pure_expr *g(PureExpr obj):
     return obj._expr
+
+def reduce_with(PureRule locals, PureExpr x):
+    pure.pure_save()
+    pure.pure_eval(locals._stmt)
+    x.refresh()
+    pure.pure_restore()
+    return x
