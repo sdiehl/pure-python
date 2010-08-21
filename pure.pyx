@@ -99,11 +99,14 @@ cdef class PureExpr:
         nex.set_head(self)
         return nex
 
-    def __richcmp__(self, PureExpr other, int op):
-        if op == 2:
-            return (self.tag) == (other.tag)
-        else:
-            return False
+    #def __richcmp__(self, PureExpr other, int op):
+    #    if op == 2:
+    #        return (self.tag) == (other.tag)
+    #    else:
+    #        return False
+
+    #cpdef __richcmp__(self, PureExpr other):
+    #    return pure.same(self._expr, other._expr)
 
     def __add__(self,other):
         return operator.add(self,other)
@@ -191,8 +194,9 @@ cdef class PureRule(PureExpr):
         #pure.pure_restore()
 
         if isinstance(lhs,PureApp):
-            print 'Changing head'
-            lhs.get_head().update()
+            #print 'Changing head'
+            #lhs.get_head().update()
+            pass
 
     def __repr__(self):
         return self._stmt
@@ -245,12 +249,36 @@ cdef class PureTuple(PureExpr):
             xps[i] = xp
         self._expr = pure.pure_tuplev(len(args),xps)
 
+cdef class PureLevel(PureExpr):
+    _type = 'level'
+    cdef uint32_t _hash
+
+    def __cinit__(self,rules):
+        # I can't figure out how to use the locals command in the
+        # public API so we'll just use the eval until I can
+        # figure out a better way
+
+        rls = '; '.join(rules)
+        cmd = ' '.join(['__locals__ with', rls, 'end;'])
+        self._expr = pure.pure_eval(cmd)
+        self._hash = pure.hash(self._expr)
+
+    def hash(self):
+        return self._hash
+
 cdef pure_expr *g(PureExpr obj):
     return obj._expr
 
-def reduce_with(PureRule locals, PureExpr x):
-    pure.pure_save()
-    pure.pure_eval(locals._stmt)
-    x.refresh()
-    pure.pure_restore()
-    return x
+def extract(PureRule rule):
+    pure.pure_eval(rule._stmt)
+
+def reduce_with_pure_rules(PureLevel level, PureExpr expr):
+    '''Convert a Python list of strings into a dynamic local
+    enviroment and pass reduce the given expression with it'''
+
+    # Basically equivelent to
+    # reduce_with expr __locals__ with rule1; rule2; end;
+
+    cdef pure_expr *rexp
+    rexp = pure.reduce(level._expr, expr._expr)
+    return PureExpr().se(rexp)

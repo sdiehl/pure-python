@@ -132,9 +132,11 @@ cdef extern from "pure/runtime.h":
     pure_expr *pure_clear_sentry(pure_expr *x)
 
     pure_expr *pure_val(char *s)
+    pure_expr *reduce(pure_expr *lcls, pure_expr *x)
 
     pure_expr *eval(pure_expr *x)
     pure_expr *evalcmd(pure_expr *x)
+    pure_expr *pure_locals(uint32_t n, ...)
 
     pure_expr *pure_eval(char *s)
     pure_expr *pure_evalx(pure_expr *x, pure_expr** e)
@@ -142,3 +144,13 @@ cdef extern from "pure/runtime.h":
 
     bool pure_let(int32_t sym, pure_expr *x)
     bool pure_def(int32_t sym, pure_expr *x)
+
+    #Level handling
+    uint32_t pure_save()
+    uint32_t pure_savelevel()
+    uint32_t pure_restore()
+
+    bool pure_clear(int32_t sym)
+
+    uint32_t hash(pure_expr *x)
+    bool same(pure_expr *x, pure_expr *y)

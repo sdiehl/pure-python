@@ -9,6 +9,13 @@ F = PureSymbol("f")
 PureRule(F(A,B,C),B*B-D*A*C)
 G = PureList(A,B,C)
 
+print F.refc
+print A.refc
+print B.refc
+C = PureRule(F(A),B)
+Q = PureRule(F(A,B),PureList(A,B))
+
+print reduce_with(Q,F(A,B))
 assert A == PureSymbol("a")
 assert B == env.eval("b")
 assert C.type == 'symbol'
