@@ -2,12 +2,21 @@
 Pure Python Interface
 ---------------------
 
+Pure-python is a Cython wrapper for the Pure programming language
+interpreter. It forms the backend for the rewrite capabilities
+for Wise ( http://github.com/sdiehl/wise ).
+
 AUTHORS
 --------------------
 
 Written by Stephen Diehl ( sdiehl@clarku.edu )
-Pure ( http://code.google.com/p/pure-lang ) - Copyright Albert Graef
 
+CREDITS
+--------------------
+
+Pure Language 
+http://code.google.com/p/pure-lang )
+Copyright Albert Graef
 
 License
 --------------------
