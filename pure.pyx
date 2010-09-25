@@ -1,5 +1,5 @@
 cimport pure
-cimport python_exc
+cimport cpython
 
 current_interp = None
 env = PureEnv()
@@ -17,7 +17,7 @@ cdef class PureEnv:
             cargs[i] = args[i]
         self._interp = pure.pure_create_interp(1,cargs)
         if self._interp is NULL:
-            python_exc.PyErr_NoMemory()
+            cpython.PyErr_NoMemory()
         global current_interp
         current_interp = self
         self.locals = []
@@ -269,10 +269,7 @@ cdef class PureLevel(PureExpr):
 cdef pure_expr *g(PureExpr obj):
     return obj._expr
 
-def extract(PureRule rule):
-    pure.pure_eval(rule._stmt)
-
-def reduce_with_pure_rules(PureLevel level, PureExpr expr):
+def reduce_with_pure_rules(PureExpr level, PureExpr expr):
     '''Convert a Python list of strings into a dynamic local
     enviroment and pass reduce the given expression with it'''
 
