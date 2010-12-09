@@ -1,5 +1,16 @@
 from libcpp cimport bool
 
+cdef extern from "stdlib.h":
+    ctypedef unsigned long size_t
+    void free(void *ptr)
+    void *malloc(size_t size)
+    void *realloc(void *ptr, size_t size)
+    size_t strlen(char *s)
+    void *calloc(long nmemb, long size)
+
+cdef extern from "string.h":
+    char *strcpy(char *dest, char *src)
+
 cdef extern from "stdint.h":
     ctypedef int int32_t
     ctypedef int uint32_t
@@ -129,6 +140,8 @@ cdef extern from "pure/runtime.h":
     void pure_freenew(pure_expr *x)
     void pure_ref(pure_expr *x)
     void pure_unref(pure_expr *x)
+    void pure_interp_compile(pure_interp *interp, int32_t fno)
+
     pure_expr *pure_sentry(pure_expr *sentry, pure_expr *x)
     pure_expr *pure_get_sentry(pure_expr *x)
     pure_expr *pure_clear_sentry(pure_expr *x)

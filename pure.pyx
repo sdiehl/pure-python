@@ -1,26 +1,72 @@
 cimport pure
 cimport cpython
+from libc.stdlib cimport *
 
-current_interp = None
-env = PureEnv()
+# This module only works with Python 2.7
+# I designed this after working with rpy2's Cython wrapper.
 
-import pure_operators as operator
+class IManager:
+    # Interpreter manager - a singleton / borg
+    current_interp = None
+
+    def __cinit__(self):
+        self.__dict__ = self.__shared_state
+
+    def add(self, interp):
+        self.current_interp = interp
+
+    def get(self):
+        if self.current_interp:
+            return self.current_interp
+        else:
+            raise Exception('No active interpreter')
+
+    @classmethod
+    def exists(self):
+        return not self.current_interp
+
+    @classmethod
+    def active(self):
+        return self()
 
 cdef class PureEnv:
     cdef pure_interp *_interp
     cpdef list locals
+    cdef char **argv
 
-    def __cinit__(self,*args):
+    def __cinit__(self):
+        # This is called whenever a worker is spawned, it must be
+        # light and fast.
         print "Creating interpreter instance."
-        cdef char **cargs
-        for i in enumerate(args):
-            cargs[i] = args[i]
-        self._interp = pure.pure_create_interp(1,cargs)
+
+        args = ['--noprelude']
+
+        cdef char *xp
+        cdef char *xps[5]
+        for i in range(0,len(args)):
+            #xp = <char *>malloc(len(args[i]) * sizeof(char))
+            #xps[i] = <char *>malloc( (len(args[i])+2) * sizeof( char* ) )
+            #xp = '--noprelude'
+            xp = 'h'
+            strcpy(xps[i],xp)
+
+        self._interp = pure.pure_create_interp(len(args),xps)
+        print 'Created succesfully!'
+        #try:
+        #    print 'Created succesfully!'
+        #finally:
+        #    pass
+        #    free(self.argv)
+
         if self._interp is NULL:
             cpython.PyErr_NoMemory()
-        global current_interp
-        current_interp = self
+
+        # PureSymbol fails if this not here
         self.locals = []
+        im = IManager.active()
+        im.add(self)
+
+        print 'Exited'
 
     def __dealloc__(self):
         pass
@@ -29,9 +75,9 @@ cdef class PureEnv:
         cdef pure_expr *y
         y = pure.pure_eval(s)
         if y == NULL:
-            print "Could not parse"
+            print "Could not evaluate:", s
         else:
-            return (PureExpr().se(y))
+            return PureExpr().se(y)
 
     cpdef cmd(self, s):
         print pure.pure_evalcmd(s)
@@ -40,6 +86,10 @@ cdef class PureEnv:
         self.eval("using %s" % lib)
         for sym in self.locals:
             sym.update()
+
+    def compile_interp(self, fnp=0):
+        print 'JIT compiling symbols.'
+        pure.pure_interp_compile(self._interp,fnp)
 
 cdef class PureExpr:
     cdef pure_expr *_expr
@@ -85,6 +135,7 @@ cdef class PureExpr:
 
     def __call__(self,*args):
         cdef pure_expr *xp
+        #TODO, why did I set this to 10?
         cdef pure_expr *xps[10]
 
         for i in range(0,len(args)):
@@ -108,20 +159,20 @@ cdef class PureExpr:
     #cpdef __richcmp__(self, PureExpr other):
     #    return pure.same(self._expr, other._expr)
 
-    def __add__(self,other):
-        return operator.add(self,other)
+    #def __add__(self,other):
+    #    return operator.add(self,other)
 
-    def __neg__(self):
-        return operator.neg(self)
+    #def __neg__(self):
+    #    return operator.neg(self)
 
-    def __sub__(self,other):
-        return operator.sub(self,other)
+    #def __sub__(self,other):
+    #    return operator.sub(self,other)
 
-    def __mul__(self,other):
-        return operator.mul(self,other)
+    #def __mul__(self,other):
+    #    return operator.mul(self,other)
 
-    def __div__(self,other):
-        return operator.div(self,other)
+    #def __div__(self,other):
+    #    return operator.div(self,other)
 
 cdef class PureApp(PureExpr):
     _type = 'app'
@@ -147,12 +198,15 @@ cdef class PureSymbol(PureExpr):
     cdef public _psym
 
     def __cinit__(self,sym):
-       self._sym = sym
-       self._psym = sym
-       self._expr = pure.pure_symbol(pure.pure_sym(sym))
-       self._tag = self._expr.tag
-       self._interp = current_interp
-       self._interp.locals.append(self)
+       if not IManager.exists():
+           print 'No active interpreter'
+       else:
+           self._sym = sym
+           self._psym = sym
+           self._expr = pure.pure_symbol(pure.pure_sym(sym))
+           self._tag = self._expr.tag
+           #self._interp = IManager.active().current_interp
+           #self._interp.locals.append(self)
 
     def update(self):
        '''Called if the we need to change what the symbol refers to'''
@@ -169,6 +223,9 @@ cdef class PureQuotedSymbol(PureExpr):
        self._sym = sym
        self._expr = pure.pure_quoted_symbol(pure.pure_sym(sym))
        self._tag = self._expr.tag
+
+cdef class PureClosure(PureSymbol):
+    cdef public arity
 
 cdef class PureRule(PureExpr):
     cdef char* _stmt
@@ -188,10 +245,6 @@ cdef class PureRule(PureExpr):
         stmt = "=".join([slhs,srhs])
         self._stmt = stmt
         self._pstmt = stmt
-        #pure.pure_save()
-        #self._expr = pure.pure_eval(stmt)
-        #print pure.str(pure.pure_eval('f a'))
-        #pure.pure_restore()
 
         if isinstance(lhs,PureApp):
             #print 'Changing head'
@@ -232,11 +285,11 @@ cdef class PureList(PureExpr):
             xps[i] = xp
         self._expr = pure.pure_listv(len(args),xps)
 
-    def __getitem__(a,b):
-        return operator.__getitem__(a,PureInt(b))
-
-    def __getslice__(a,b,c):
-        return operator.__getslice__(a,PureInt(b),PureInt(c))
+#    def __getitem__(a,b):
+#        return operator.__getitem__(a,PureInt(b))
+#
+#    def __getslice__(a,b,c):
+#        return operator.__getslice__(a,PureInt(b),PureInt(c))
 
 cdef class PureTuple(PureExpr):
     _type = 'tuple'
@@ -279,3 +332,9 @@ def reduce_with_pure_rules(PureExpr level, PureExpr expr):
     cdef pure_expr *rexp
     rexp = pure.reduce(level._expr, expr._expr)
     return PureExpr().se(rexp)
+
+def new_level():
+    pure.pure_save()
+
+def restore_level():
+    pure.pure_restore()
