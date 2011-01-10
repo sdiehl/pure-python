@@ -16,10 +16,15 @@ Dependencies
 * make
 * gcc / clang
 
+Build
+--------------------
+
+Run 'make all check'
+
 Usage
 ---------------------
 
-> from pure import *
+> from cpure import *
 > A = PureSymbol("a")
 > B = PureSymbol("b")
 > D = PureInt(4)
